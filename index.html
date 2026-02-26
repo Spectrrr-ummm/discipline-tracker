@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hour Discipline Tracker</title>
+
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f2937">
     <style>
         body {
             font-family: sans-serif;
@@ -375,6 +378,10 @@ Tap = Green (50m+) &nbsp;|&nbsp; Hold = Orange (30-49m)
         dark = !dark;
         document.body.classList.toggle('dark');
         localStorage.setItem('darkMode', dark);
+    }
+
+    if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
     }
 </script>
 </body> 
