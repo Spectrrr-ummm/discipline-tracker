@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hour Discipline Tracker</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+    body.dark {
+        background-color: #1f2937;
+        color: white;
+    }
+
+    /* Header */
+    header {
+        background: white;
+        padding: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    body.dark header {
+        background: #374151;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    button {
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-size: 1.2rem;
+        padding: 5px 10px;
+    }
+
+    /* Main Grid */
+    #grid-area {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+
+    #grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 8px;
+        width: 100%;
+        max-width: 400px;
+        aspect-ratio: 6/4;
+    }
+
+    .box {
+        background: #e5e7eb;
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        color: #6b7280;
+        font-size: 0.9rem;
+        user-select: none;
+    }
+
+    /* Light Mode Colors */
+    .box.medium {
+        background: #f59e0b !important;
+        color: white !important;
+    }
+
+    .box.long {
+        background: #10b981 !important;
+        color: white !important;
+    }
+
+    .box.locked {
+        background: #d1d5db;
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    /* Dark Mode Base */
+    body.dark .box {
+        background: #4b5563;
+        color: #d1d5db;
+    }
+    
+    body.dark .box.locked {
+        background: #374151;
+        color: #6b7280;
+    }
+
+    /* Dark Mode Colors */
+    body.dark .box.medium {
+        background: #f59e0b !important;
+        color: white !important;
+    }
+
+    body.dark .box.long {
+        background: #10b981 !important;
+        color: white !important;
+    }
+
+    /* Footer Tabs */
+    footer {
+        background: white;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        padding: 15px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    body.dark footer {
+        background: #374151;
+        border-top-color: #4b5563;
+    }
+
+    .tab {
+        padding: 10px 25px;
+        border-radius: 20px;
+        font-weight: bold;
+        color: #9ca3af;
+        background: #f3f4f6;
+    }
+
+    body.dark .tab {
+        background: #1f2937;
+        color: #9ca3af;
+    }
+
+    .tab.active {
+        background: #1f2937;
+        color: white;
+    }
+
+    body.dark .tab.active {
+        background: white;
+        color: #1f2937;
+    }
+
+    /* Legend */
+    .legend {
+        text-align: center;
+        padding-bottom: 10px;
+        font-size: 0.75rem;
+        color: #9ca3af;
+    }
+</style>
+</head> 
+<body>
+  
+  <header>
+    <button id="prevBtn" onclick="changeDay(-1)">&lt;</button>
+    <h1 id="dateTitle">TODAY</h1>
+    <div>
+        <button onclick="toggleTheme()">🌙</button>
+        <button id="nextBtn" onclick="changeDay(1)">&gt;</button>
+    </div>
+</header>
+
+<div id="grid-area">
+    <div id="grid"></div>
+</div>
+<div class="legend">
+Tap = Green (50m+) &nbsp;|&nbsp; Hold = Orange (30-49m)
+</div>
+
+<footer>
+    <button class="tab active" id="btnToday" onclick="showToday()">Today</button>
+    <button class="tab" id="btnInsights" onclick="showInsights()">Insights</button>
+</footer>
+
+<script>
+    // --- Variables ---
+    let myDate = new Date();
+    let mode = 'today'; // 'today' or 'insights'
+    let dark = localStorage.getItem('darkMode') === 'true';
+
+    const NONE = 0;
+    const MED = 1;
+    const LONG = 2;
+
+    // --- Init ---
+    if (dark) document.body.classList.add('dark');
+    render();
+
+    // --- Core Functions ---
+
+    function getData() {
+        let d = localStorage.getItem('hData');
+        return d ? JSON.parse(d) : {};
+    }
+
+    function save(d) {
+        localStorage.setItem('hData', JSON.stringify(d));
+    }
+
+    function getKey(d) {
+        return d.toISOString().split('T')[0];
+    }
+
+    function render() {
+        let container = document.getElementById('grid');
+        container.innerHTML = '';
+
+        let key = getKey(myDate);
+        let todayKey = getKey(new Date());
+        let nowHour = new Date().getHours()-1;
+
+        // Update Title
+        let title = document.getElementById('dateTitle');
+        if (key === todayKey) title.innerText = 'TODAY';
+        else title.innerText = myDate.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+
+        // Update Tabs
+        document.getElementById('btnToday').className = mode === 'today' ? 'tab active' : 'tab';
+        document.getElementById('btnInsights').className = mode === 'insights' ? 'tab active' : 'tab';
+
+        // FIXED: Navigation buttons visibility
+        let prevBtn = document.getElementById('prevBtn');
+        let nextBtn = document.getElementById('nextBtn');
+        
+        if (mode === 'today') {
+            // Today mode: hide both buttons
+            prevBtn.style.visibility = 'hidden';
+            nextBtn.style.visibility = 'hidden';
+        } else {
+            // Insights mode: show both
+            prevBtn.style.visibility = 'visible';
+            // Next button hidden if we are at today
+            nextBtn.style.visibility = (key === todayKey) ? 'hidden' : 'visible';
+        }
+
+        // Render 24 Boxes (01 to 24)
+        for (let i = 0; i < 24; i++) {
+            let box = document.createElement('div');
+            box.className = 'box';
+            
+            // Show 01, 02, ... 24 instead of 0, 1, ... 23
+            let hourLabel = i + 1;
+            box.innerText = hourLabel < 10 ? '0' + hourLabel : hourLabel;
+
+            let data = getData();
+            let status = (data[key] && data[key][i]) ? data[key][i] : 0;
+
+            if (status === MED) box.classList.add('medium');
+            if (status === LONG) box.classList.add('long');
+
+            // Check if editable
+            let canEdit = false;
+            if (mode === 'today' && key === todayKey && i <= nowHour) {
+                canEdit = true;
+            }
+
+            if (!canEdit) {
+                box.classList.add('locked');
+            } else {
+                // Long Press & Tap Events
+                let timer;
+                let longPressTriggered = false;
+                
+                // Mouse Events
+                box.onmousedown = () => {
+                    longPressTriggered = false;
+                    timer = setTimeout(() => {
+                        longPressTriggered = true;
+                        setStatus(i, 'hold');
+                    }, 400);
+                };
+                
+                box.onmouseup = () => {
+                    if (timer) clearTimeout(timer);
+                    if (!longPressTriggered) {
+                        setStatus(i, 'tap');
+                    }
+                };
+                
+                // Touch Events
+                box.ontouchstart = (e) => {
+                    e.preventDefault();
+                    longPressTriggered = false;
+                    timer = setTimeout(() => {
+                        longPressTriggered = true;
+                        setStatus(i, 'hold');
+                    }, 400);
+                };
+                
+                box.ontouchend = () => {
+                    if (timer) clearTimeout(timer);
+                    if (!longPressTriggered) {
+                        setStatus(i, 'tap');
+                    }
+                };
+            }
+
+            container.appendChild(box);
+        }
+    }
+
+    function setStatus(hour, type) {
+        let key = getKey(myDate);
+        let data = getData();
+        if (!data[key]) data[key] = new Array(24).fill(0);
+        
+        let current = data[key][hour];
+
+        if (type === 'tap') {
+            if (current === LONG) data[key][hour] = NONE;
+            else data[key][hour] = LONG;
+        } else {
+            if (current === MED) data[key][hour] = NONE;
+            else data[key][hour] = MED;
+        }
+
+        save(data);
+        render();
+    }
+
+    // --- Navigation ---
+
+    function showToday() {
+        mode = 'today';
+        myDate = new Date();
+        render();
+    }
+
+    function showInsights() {
+        mode = 'insights';
+        // Start Insights from yesterday
+        let yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() -0
+        );
+        myDate = yesterday;
+        render();
+    }
+
+    function changeDay(n) {
+        // FIXED: Prevent going to future days
+        let todayKey = getKey(new Date());
+        let currentKey = getKey(myDate);
+        
+        // Calculate new date
+        let newDate = new Date(myDate);
+        newDate.setDate(newDate.getDate() + n);
+        let newKey = getKey(newDate);
+        
+        // Don't allow future dates
+        if (newKey > todayKey) {
+            return; // Do nothing if trying to go to future
+        }
+        
+        myDate = newDate;
+        render();
+    }
+
+    function toggleTheme() {
+        dark = !dark;
+        document.body.classList.toggle('dark');
+        localStorage.setItem('darkMode', dark);
+    }
+</script>
+</body> 
+</html> 
